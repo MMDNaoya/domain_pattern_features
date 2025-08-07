@@ -1,2 +1,77 @@
-# domain_pattern_features
-extract features from magnetic binarized domain pattern images
+# 磁区パターン特徴量抽出ツール (Magnetic Domain Feature Extractor)
+
+## 概要
+
+このリポジトリは、ヒステリシスシミュレーションなどで得られる磁区パターンのような2値画像（-1と+1で構成される配列）から、多岐にわたる幾何学的・位相的・テクスチャ特徴量を抽出し、集計するためのPythonツール群です。
+
+## 得られる特徴量
+
+このツールは、入力された画像を「**正領域**（値が+1の部分）」と「**負領域**（値が-1の部分）」に分け、それぞれの領域に対して以下の特徴量を計算します。これにより、例えば上向きスピンのドメイン（正領域）と下向きスピンのドメイン（負領域）の特性を個別かつ網羅的に分析できます。
+
+### 1. 領域ごとの特徴量
+画像内の連結した各領域（ドメイン）について、以下の特徴量をリストとして取得します。
+
+* **基本的な形状特徴量:**
+    * `area`: 面積（ピクセル数）
+    * `perimeter`: 周囲長
+    * `major_axis_length`, `minor_axis_length`: 楕円近似した際の長軸・短軸の長さ
+    * `aspect_ratio`: アスペクト比（長軸 / 短軸）
+    * `circularitie`: 円形度 ($4\pi \times \text{面積} / \text{周囲長}^2$)
+* **位置と形状に関する追加特徴量:**
+    * `incircle_rad`: 領域に内接する最大の円の半径
+    * `excircle_rad`: 領域を完全に含む最小の円の半径
+    * `nearest_neighbor_distance`: 最も近くにある別領域までの距離
+
+### 2. 画像全体の特徴量
+画像全体を一つのパターンとして捉え、以下の大域的な特徴量を計算します。
+
+* **位相的特徴量 (Topological Features):**
+    * `num_components`: 連結領域（ドメイン）の総数
+    * `euler_number`: オイラー数（連結成分の数 - 穴の数）
+* **全体形状とテクスチャ:**
+    * `total_area`, `total_perimeter`: 全領域の面積・周囲長の合計
+    * `skeleton_length`: 領域を細線化（スケルトン化）したときの総長
+    * `convex_hull_area`: 全領域を囲む凸包の面積
+    * `convexity_ratio`: 凸包面積に対する実面積の割合
+* **Tamuraのテクスチャ特徴量:**
+    * `tamura_contrast`: コントラスト
+    * `tamura_coarseness`: 粗さ
+    * `tamura_directionality`: 方向性
+* **Huモーメント不変量:**
+    * `hu0` から `hu6`: 回転、スケール、平行移動に対して不変な形状記述子
+
+### 3. 集計された特徴量
+`features_aggregator.py`は、上記で計算された領域ごとの特徴量リストをさらに集計し、扱いやすい単一の値にします。
+
+* **面積基準での代表領域:**
+    * 面積が **最大 (largest)**、**最小 (smallest)**、**中央 (median)** の領域が持つ各種特徴量
+* **統計量:**
+    * 全領域の特徴量（周囲長、円形度など）の **最大 (max)**、**最小 (min)**、**中央 (median)**、**合計 (total)** 値
+
+---
+
+## プログラムの構造
+
+このツールの主要なファイルとその役割は以下の通りです。
+
+-   **`features_calculator.py`**
+    -   2値画像を入力として受け取り、上述の多岐にわたる特徴量を計算する本体スクリプトです。
+    -   正領域（+1）と負領域（-1）の両方について、それぞれ特徴量を計算します。
+
+-   **`features_aggregator.py`**
+    -   `features_calculator.py` が出力した特徴量データ（特に領域ごとのリスト）を引数に取ります。
+    -   統計処理を行い、最大値、最小値、中央値や面積基準の代表値など、より解釈しやすい形にデータを要約します。
+
+-   **`tamura.py`**
+    -   Tamuraのテクスチャ特徴量（Contrast, Coarseness, Directionality）を計算するためのヘルパーモジュールです。
+
+---
+
+## 使い方
+
+### 環境設定
+
+以下のコマンドで、必要なPythonパッケージをインストールします。
+
+```bash
+pip install -r requirements.txt
